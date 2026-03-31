@@ -162,8 +162,14 @@ func (idx *Index) Insert(id uint64, vector []float32) error {
 	for lc := min(level, idx.maxLevel); lc >= 0; lc-- {
 		candidates := idx.searchLayer(vector, currBest, idx.config.EfConstruction, lc)
 
-		// Select M best neighbors
-		neighbors := idx.selectNeighborsSimple(candidates, idx.config.M)
+		// Determine max connections: Mmax at layer 0, M at upper layers
+		mmax := idx.config.M
+		if lc == 0 {
+			mmax = idx.config.Mmax
+		}
+
+		// Select best neighbors (up to mmax for the new node)
+		neighbors := idx.selectNeighborsSimple(candidates, mmax)
 
 		// Connect n to selected neighbors
 		n.friends[lc] = make([]uint64, 0, len(neighbors))
@@ -172,12 +178,6 @@ func (idx *Index) Insert(id uint64, vector []float32) error {
 		}
 
 		// Add bidirectional edges and prune if necessary
-		mmax := idx.config.Mmax
-		if lc == 0 {
-			mmax = idx.config.Mmax
-		} else {
-			mmax = idx.config.M
-		}
 		for _, nb := range neighbors {
 			nbNode := idx.nodes[nb.id]
 			if lc >= len(nbNode.friends) {
