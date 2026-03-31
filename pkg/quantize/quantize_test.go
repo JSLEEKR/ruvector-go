@@ -324,3 +324,37 @@ func TestPQDecodeCodesMismatch(t *testing.T) {
 		t.Error("expected code length mismatch")
 	}
 }
+
+func TestPQDecodeOutOfBoundsCodes(t *testing.T) {
+	dim := 8
+	rng := rand.New(rand.NewSource(42))
+	pq, _ := NewProductQuantizer(dim, 4, 4, 10) // codebook size = 4
+	data := make([][]float32, 20)
+	for i := range data {
+		data[i] = make([]float32, dim)
+		for j := range data[i] {
+			data[i][j] = rng.Float32()
+		}
+	}
+	_ = pq.Train(data)
+
+	// Code value 100 exceeds codebook size of 4
+	_, err := pq.Decode([]uint8{0, 0, 100, 0})
+	if err == nil {
+		t.Error("expected error for out-of-bounds code value")
+	}
+}
+
+func TestDistanceWithTableOutOfBounds(t *testing.T) {
+	table := [][]float32{{1.0, 2.0}, {3.0, 4.0}}
+	// code 5 is out of bounds for table row of length 2
+	d := DistanceWithTable(table, []uint8{0, 5})
+	if d != float32(math.MaxFloat32) {
+		t.Errorf("expected MaxFloat32 for out-of-bounds, got %f", d)
+	}
+	// more subspaces than table rows
+	d = DistanceWithTable(table, []uint8{0, 0, 0})
+	if d != float32(math.MaxFloat32) {
+		t.Errorf("expected MaxFloat32 for excess subspaces, got %f", d)
+	}
+}

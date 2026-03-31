@@ -96,6 +96,11 @@ func (pq *ProductQuantizer) Decode(codes []uint8) ([]float32, error) {
 	if len(codes) != pq.subspaces {
 		return nil, fmt.Errorf("code length mismatch: got %d, want %d", len(codes), pq.subspaces)
 	}
+	for m, c := range codes {
+		if int(c) >= pq.codebookSize {
+			return nil, fmt.Errorf("code[%d]=%d exceeds codebook size %d", m, c, pq.codebookSize)
+		}
+	}
 
 	decoded := make([]float32, pq.dim)
 	for m := 0; m < pq.subspaces; m++ {
@@ -128,9 +133,13 @@ func (pq *ProductQuantizer) DistanceTable(query []float32) ([][]float32, error) 
 }
 
 // DistanceWithTable computes approximate distance using precomputed table.
+// Panics are prevented by bounds-checking codes against table dimensions.
 func DistanceWithTable(table [][]float32, codes []uint8) float32 {
 	var sum float32
 	for m, code := range codes {
+		if m >= len(table) || int(code) >= len(table[m]) {
+			return float32(math.MaxFloat32)
+		}
 		sum += table[m][code]
 	}
 	return float32(math.Sqrt(float64(sum)))
